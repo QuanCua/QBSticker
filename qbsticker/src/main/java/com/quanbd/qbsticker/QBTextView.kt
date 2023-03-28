@@ -5,38 +5,30 @@ import android.graphics.*
 import android.text.InputFilter
 import android.util.AttributeSet
 import android.view.ViewGroup
-import androidx.annotation.FloatRange
 import com.quanbd.qbsticker.util.MathUtils
 import kotlin.math.acos
-import kotlin.math.ceil
 import kotlin.math.sqrt
 
 class QBTextView(context: Context, attrs: AttributeSet?) :
     androidx.appcompat.widget.AppCompatTextView(context, attrs) {
     companion object {
-        const val MIN_SCALE = 0.1f
-        const val MAX_SCALE = 5.0f
         const val DEFAULT_CONTENT = "Enter your text"
-        const val PADDING_HORIZONTAL = 50f
+        const val PADDING_HORIZONTAL = 20f
         const val PADDING_VERTICAL = 20f
     }
 
     private var isInit = false
-    private var qbStickerViewListener: QBStickerViewListener? = null
     private val paintFrame = Paint()
     private val srcPoints = FloatArray(10)
     private val destPoints = FloatArray(10)
-    private val centerPoint = PointF()
+    val centerPoint = PointF()
     var srcTransformRect = Rect()
     var dstTransformRect = Rect()
     var srcDeleteRect = Rect()
     var dstDeleteRect = Rect()
+    var hitRect = Rect()
+    var model = QBStickerModel.Builder().build()
 
-    @FloatRange(from = 0.0, to = 360.0)
-    var rotateValue = 0f
-    var scaleValue = 1f
-    var translationValue = PointF(0f, 0f)
-    var isSelectedByTouch = false
     var widthView = 0f
     var heightView = 0f
 
@@ -48,12 +40,12 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         this.layoutParams = params
         this.isSingleLine = true
         this.text = DEFAULT_CONTENT
-        this.textSize = 40f
+        this.textSize = 30f
+        this.textAlignment = TEXT_ALIGNMENT_CENTER
         this.setTextColor(Color.WHITE)
         val filters = arrayOfNulls<InputFilter>(1)
         filters[0] = InputFilter.LengthFilter(241996)
         this.filters = filters
-
         initViewSize()
 
         paintFrame.isAntiAlias = true
@@ -64,16 +56,10 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         isInit = true
     }
 
-    fun setListener(listener: QBStickerViewListener) {
-        qbStickerViewListener = listener
-    }
-
     private fun initViewSize() {
         measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-        val widthView = ceil(this.paint.measureText(this.text.toString()))
-        val heightView = measuredHeight.toFloat()
-        this.widthView = widthView
-        this.heightView = heightView
+        this.widthView = paint.measureText(text.toString()) + (PADDING_HORIZONTAL * 2)
+        this.heightView = measuredHeight.toFloat()
     }
 
     fun setOptions(icTransform: Bitmap?, icDelete: Bitmap?) {
@@ -84,28 +70,63 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         dstDeleteRect = Rect(0, 0, 32 shl 1, 32 shl 1)
     }
 
+    fun updateModel(newModel: QBStickerModel? = null) {
+        if (newModel != null) {
+            model = newModel.copy()
+            model.id = System.nanoTime().toString()
+            model.isSelected = false
+        }
+
+        newModel?.let {
+            val translationBonus = 4f
+            this@QBTextView.text = text
+            this@QBTextView.setTextColor(Color.parseColor(it.color))
+            when (it.align) {
+                QBStickerModel.ALIGN_LEFT, QBStickerModel.ALIGN_JUSTIFIED ->
+                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_START
+                QBStickerModel.ALIGN_RIGHT ->
+                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_END
+                else ->
+                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_CENTER
+            }
+
+            model.translation.x = it.translation.x + translationBonus
+            model.translation.y = it.translation.y + translationBonus
+            this@QBTextView.translationX = it.translation.x + translationBonus
+            this@QBTextView.translationY = it.translation.y + translationBonus
+            this@QBTextView.scaleX = it.scale
+            this@QBTextView.scaleY = it.scale
+            this@QBTextView.rotation = it.rotate
+        }
+    }
+
     fun updateTranslation(translationValue: PointF) {
-        this.translationValue.x += translationValue.x
-        this.translationValue.y += translationValue.y
-        this.translationX = this.translationValue.x
-        this.translationY = this.translationValue.y
+        model.translation.x += translationValue.x
+        model.translation.y += translationValue.y
+        this.translationX = model.translation.x
+        this.translationY = model.translation.y
     }
 
     fun updateRotate(rotateValue: Float) {
-        this.rotateValue += rotateValue
-        this.rotateValue %= 360.0f
-        this.rotation = this.rotateValue
+        var newRotate = model.rotate + rotateValue
+        newRotate %= 360.0f
+        model.rotate = newRotate
+        this.rotation = model.rotate
     }
 
     fun updateScale(scaleValue: Float, isMultiTouch: Boolean = false) {
-        val newScale = if (isMultiTouch) this.scaleValue + scaleValue
-        else this.scaleValue * scaleValue
-
-        if (newScale in MIN_SCALE..MAX_SCALE) {
-            this.scaleValue = newScale
-            this.scaleX = this.scaleValue
-            this.scaleY = this.scaleValue
+        val newScale = if (isMultiTouch) model.scale + scaleValue
+        else model.scale * scaleValue
+        if (newScale in QBStickerModel.MIN_SCALE..QBStickerModel.MAX_SCALE) {
+            model.scale = newScale
+            this.scaleX = this.model.scale
+            this.scaleY = this.model.scale
         }
+    }
+
+    fun getRectAroundText() : Rect {
+        this.getHitRect(hitRect)
+        return hitRect
     }
 
     fun rotateAndScaleByIcon(focusDelta: PointF) {
@@ -179,6 +200,8 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         centerPoint.x = (dstTransformRect.centerX() + dstDeleteRect.centerX()) * 0.5f
         centerPoint.y = (dstTransformRect.centerY() + dstDeleteRect.centerY()) * 0.5f
 
+        canvas.drawRect(getRectAroundText(), paintFrame)
+
         icDelete?.let {
             canvas.drawBitmap(
                 it,
@@ -227,17 +250,12 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         try {
             if (!isInit) {
                 this.post {
-                    setSrcPoint(width.toFloat(), height.toFloat())
-                    this.widthView = width.toFloat()
-                    this.heightView = height.toFloat()
+                    initViewSize()
+                    setSrcPoint(this.widthView, this.heightView)
                 }
             } else {
-                measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-                this.widthView = paint.measureText(text.toString())
-                this.heightView = measuredHeight.toFloat()
+                initViewSize()
                 setSrcPoint(this.widthView, this.heightView)
-                qbStickerViewListener?.onLengthTextChange()
-
                 val oldCenter = absoluteCenter(this.width.toFloat(), this.height.toFloat())
                 val newCenter = absoluteCenter(this.widthView, this.heightView)
                 calculationCenter(oldCenter, newCenter)
@@ -248,21 +266,21 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
     }
 
     private fun setSrcPoint(width: Float, height: Float) {
-        srcPoints[0] = -PADDING_HORIZONTAL
+        srcPoints[0] = 0f
         srcPoints[1] = 0f
-        srcPoints[2] = width + PADDING_HORIZONTAL
+        srcPoints[2] = width
         srcPoints[3] = 0f
-        srcPoints[4] = width + PADDING_HORIZONTAL
+        srcPoints[4] = width
         srcPoints[5] = height
-        srcPoints[6] = -PADDING_HORIZONTAL
+        srcPoints[6] = 0f
         srcPoints[7] = height
-        srcPoints[8] = -PADDING_HORIZONTAL
+        srcPoints[8] = 0f
         srcPoints[9] = 0f
     }
 
     private fun calculationCenter(oldCenter: PointF, newCenter: PointF) {
-        val x = (oldCenter.x - newCenter.x)/2f
-        val y = (oldCenter.y - newCenter.y)/2f
+        val x = (oldCenter.x - newCenter.x) / 2f
+        val y = (oldCenter.y - newCenter.y) / 2f
         updateTranslation(PointF(x, y))
     }
 

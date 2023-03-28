@@ -8,14 +8,14 @@ import android.util.Log
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.view.GestureDetectorCompat
 import com.quanbd.qbsticker.gesture.MoveGestureDetector
 import com.quanbd.qbsticker.gesture.RotateGestureDetector
 import com.quanbd.qbsticker.util.BitmapUtils
 
-class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context, attrs),
-    QBStickerViewListener {
+class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context, attrs) {
     companion object {
         const val TAG = "QBStickerView"
         val widthScreen = Resources.getSystem().displayMetrics.widthPixels
@@ -27,13 +27,18 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
     private var moveGestureDetector: MoveGestureDetector? = null
     private var gestureDetectorCompat: GestureDetectorCompat? = null
 
-    private val listText: ArrayList<QBTextView> = arrayListOf()
-    private var textSelected: QBTextView? = null
+    var qbStickerViewListener: QBStickerViewListener? = null
+
+    val listText: ArrayList<QBTextView> = arrayListOf()
+    var textSelected: QBTextView? = null
     private var icTransform: Bitmap? = null
     private var isTransformTouched = false
     private var icDelete: Bitmap? = null
     private var isDeleteTouched = false
     private var isPointerDown = false
+    private var isSizeChange = false
+    var widthView = 0f
+    var heightView = 0f
 
     private val paint = Paint()
 
@@ -56,6 +61,13 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
         }
     }
 
+    private fun initViewSize() {
+        measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
+        widthView = measuredWidth.toFloat()
+        heightView = measuredHeight.toFloat()
+        Log.v("initViewSize", "$widthView - $heightView")
+    }
+
     private fun initIcon() {
         val bitmapTransform =
             BitmapUtils.getBitmapFromDrawable(context, R.drawable.ic_transform_sticker)
@@ -70,26 +82,36 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
         paint.style = Paint.Style.STROKE
     }
 
-    fun getListText(): ArrayList<QBTextView> {
-        return listText
+    fun duplicateText() {
+        textSelected?.let {
+            val newText = QBTextView(context, null).apply {
+                textSize = it.textSize / resources.displayMetrics.scaledDensity
+                typeface = it.typeface
+                updateModel(it.model)
+            }
+            newText.setOptions(icTransform, icDelete)
+            listText.add(0, newText)
+            this.addView(listText[0])
+        }
     }
 
-    fun getTextSelected(): QBTextView? {
-        return textSelected
-    }
-
-    fun addText(textView: QBTextView) {
-        textView.setOptions(icTransform, icDelete)
-        textView.setListener(this)
-        setDefaultTranslation(textView)
-        listText.add(0, textView)
+    fun addText() {
+        val qbTextView = QBTextView(context, null)
+        qbTextView.setOptions(icTransform, icDelete)
+        setDefaultTranslation(qbTextView)
+        listText.add(0, qbTextView)
         this.addView(listText[0])
+    }
 
+    fun updateSize(newWidth: Int, newHeight: Int) {
+        isSizeChange = true
+        val params = ViewGroup.LayoutParams(newWidth, newHeight)
+        this.layoutParams = params
     }
 
     private fun setDefaultTranslation(qbTextView: QBTextView) {
         val x = this.width.toFloat() / 2f - qbTextView.widthView / 2f
-        val y = this.height.toFloat() / 2f - qbTextView.heightView / 2f
+        val y = (this.height.toFloat() * 0.7f) - qbTextView.heightView / 2f
         qbTextView.updateTranslation(PointF(x, y))
         invalidate()
     }
@@ -97,11 +119,6 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.save()
-        /*if (listText.isNotEmpty()) {
-            listText.forEach {
-                drawTextComponent(canvas, it)
-            }
-        }*/
         textSelected?.let {
             drawTextComponent(canvas, it)
         }
@@ -116,11 +133,11 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
     private fun findEntity(event: MotionEvent): QBTextView? {
         var outputEntity: QBTextView? = null
         listText.forEach {
-            if (it.isInsideTextArea(PointF(event.x, event.y)) && !it.isSelectedByTouch) {
-                it.isSelectedByTouch = true
+            if (it.isInsideTextArea(PointF(event.x, event.y)) && !it.model.isSelected) {
+                it.model.isSelected = true
                 outputEntity = it
             } else
-                it.isSelectedByTouch = false
+                it.model.isSelected = false
         }
         return outputEntity
     }
@@ -130,15 +147,12 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
             isTransformTouched = it.dstTransformRect.contains(x.toInt(), y.toInt()) == true
             isDeleteTouched = it.dstDeleteRect.contains(x.toInt(), y.toInt()) == true
             if (isDeleteTouched) {
+                qbStickerViewListener?.onCurrentStickerDeleted()
                 this.removeView(it)
                 listText.remove(it)
                 textSelected = null
             }
         }
-    }
-
-    override fun onLengthTextChange() {
-        invalidate()
     }
 
     inner class TapsListener : GestureDetector.SimpleOnGestureListener() {
@@ -154,6 +168,7 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             textSelected = findEntity(e)
+            qbStickerViewListener?.onEntitySelected(textSelected?.model)
             invalidate()
             return true
         }
@@ -208,6 +223,29 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
             super.onMoveFinish(detector)
             Log.v(TAG, "onMoveFinish")
             isPointerDown = false
+            qbStickerViewListener?.onActionUp()
         }
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        Log.v("onLayout", "onSizeChanged")
+
+        if (isSizeChange) {
+            if (oldw == 0 || oldh == 0) return
+            val calX = (oldw - w) / 2f
+            val calY = (oldh - h) / 2f
+            val oldSize = (oldw + oldh).toFloat()
+            val newSize = (w + h).toFloat()
+            listText.forEach {
+                it.updateTranslation(PointF(-calX, -calY))
+                it.updateScale(newSize / oldSize)
+            }
+        }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        setMeasuredDimension(measuredWidth, measuredHeight)
     }
 }

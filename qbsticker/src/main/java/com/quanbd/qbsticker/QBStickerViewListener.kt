@@ -1,5 +1,8 @@
 package com.quanbd.qbsticker
 
 interface QBStickerViewListener {
-    fun onLengthTextChange()
+    fun onEntitySelected(qbSticker: QBStickerModel?)
+    fun onCurrentStickerDeleted()
+    fun onActionUp()
+    fun updateTextStickerData(qbSticker: QBStickerModel)
 }
