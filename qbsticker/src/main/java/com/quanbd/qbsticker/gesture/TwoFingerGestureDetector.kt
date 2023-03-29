@@ -1,6 +1,7 @@
 package com.quanbd.qbsticker.gesture
 
 import android.content.Context
+import android.util.Log
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import kotlin.math.sqrt
@@ -123,10 +124,10 @@ abstract class TwoFingerGestureDetector(context: Context?) : BaseGestureDetector
         val edgeSlop = mEdgeSlop
         val rightSlop = mRightSlopEdge
         val bottomSlop = mBottomSlopEdge
-        val x0 = event.rawX
-        val y0 = event.rawY
-        val x1 = getRawX(event, 1)
-        val y1 = getRawY(event, 1)
+        val x0 = event.getX(0)
+        val y0 = event.getY(0)
+        val x1 = event.getX(1)
+        val y1 = event.getY(1)
         val p0sloppy = x0 < edgeSlop || y0 < edgeSlop || x0 > rightSlop || y0 > bottomSlop
         val p1sloppy = x1 < edgeSlop || y1 < edgeSlop || x1 > rightSlop || y1 > bottomSlop
         if (p0sloppy && p1sloppy) {

@@ -5,11 +5,11 @@ import android.content.res.Resources
 import android.graphics.*
 import android.util.AttributeSet
 import android.util.Log
-import android.view.GestureDetector
-import android.view.MotionEvent
-import android.view.ScaleGestureDetector
-import android.view.ViewGroup
+import android.view.*
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.RelativeLayout
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.GestureDetectorCompat
 import com.quanbd.qbsticker.gesture.MoveGestureDetector
 import com.quanbd.qbsticker.gesture.RotateGestureDetector
@@ -19,6 +19,7 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
     companion object {
         const val TAG = "QBStickerView"
         val widthScreen = Resources.getSystem().displayMetrics.widthPixels
+        val heightScreen = Resources.getSystem().displayMetrics.heightPixels
         val ICON_SIZE = widthScreen * 0.075f
     }
 
@@ -105,8 +106,11 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
 
     fun updateSize(newWidth: Int, newHeight: Int) {
         isSizeChange = true
-        val params = ViewGroup.LayoutParams(newWidth, newHeight)
-        this.layoutParams = params
+        this.layoutParams.apply {
+            width = newWidth
+            height = newHeight
+            requestLayout()
+        }
     }
 
     private fun setDefaultTranslation(qbTextView: QBTextView) {
@@ -185,6 +189,9 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
     }
 
     inner class RotateListener : RotateGestureDetector.SimpleOnRotateGestureListener() {
+        override fun onRotateBegin(detector: RotateGestureDetector): Boolean {
+            return true
+        }
         override fun onRotate(detector: RotateGestureDetector): Boolean {
             if (textSelected != null && isPointerDown) {
                 textSelected?.updateRotate(-detector.rotationDegreesDelta)
@@ -229,7 +236,7 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        Log.v("onLayout", "onSizeChanged")
+        Log.v(TAG, "onSizeChanged")
 
         if (isSizeChange) {
             if (oldw == 0 || oldh == 0) return
@@ -242,10 +249,5 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
                 it.updateScale(newSize / oldSize)
             }
         }
-    }
-
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        setMeasuredDimension(measuredWidth, measuredHeight)
     }
 }
