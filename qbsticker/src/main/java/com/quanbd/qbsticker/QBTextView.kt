@@ -181,9 +181,14 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         }
     }*/
 
-    fun drawFrameText(canvas: Canvas, icTransform: Bitmap?, icDelete: Bitmap?) {
+    fun drawFrameText(
+        canvas: Canvas,
+        icTransform: Bitmap?,
+        icDelete: Bitmap?,
+        lineSelectedColor: Int
+    ) {
         this.matrix.mapPoints(destPoints, srcPoints)
-        paintFrame.color = Color.WHITE
+        paintFrame.color = lineSelectedColor
         canvas.drawLines(destPoints, 0, 8, paintFrame)
         canvas.drawLines(destPoints, 2, 8, paintFrame)
 
@@ -199,8 +204,6 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
 
         centerPoint.x = (dstTransformRect.centerX() + dstDeleteRect.centerX()) * 0.5f
         centerPoint.y = (dstTransformRect.centerY() + dstDeleteRect.centerY()) * 0.5f
-
-        canvas.drawRect(getRectAroundText(), paintFrame)
 
         icDelete?.let {
             canvas.drawBitmap(

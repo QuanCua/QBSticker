@@ -5,24 +5,25 @@ import android.content.res.Resources
 import android.graphics.*
 import android.util.AttributeSet
 import android.util.Log
-import android.view.*
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.RelativeLayout
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.GestureDetectorCompat
 import com.quanbd.qbsticker.gesture.MoveGestureDetector
 import com.quanbd.qbsticker.gesture.RotateGestureDetector
 import com.quanbd.qbsticker.util.BitmapUtils
 
-class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context, attrs) {
+class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLayout(context, attrs) {
     companion object {
         const val TAG = "QBStickerView"
         val widthScreen = Resources.getSystem().displayMetrics.widthPixels
-        val heightScreen = Resources.getSystem().displayMetrics.heightPixels
         val ICON_SIZE = widthScreen * 0.075f
     }
-
+    /** Attribute */
+    private var isEnableTransformIcon = true
+    private var isEnableDeleteIcon = true
+    private var lineSelectedColor = Color.WHITE
     private var scaleGestureDetector: ScaleGestureDetector? = null
     private var rotateGestureDetector: RotateGestureDetector? = null
     private var moveGestureDetector: MoveGestureDetector? = null
@@ -30,21 +31,20 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
 
     var qbStickerViewListener: QBStickerViewListener? = null
 
-    val listText: ArrayList<QBTextView> = arrayListOf()
-    var textSelected: QBTextView? = null
     private var icTransform: Bitmap? = null
     private var isTransformTouched = false
     private var icDelete: Bitmap? = null
     private var isDeleteTouched = false
     private var isPointerDown = false
     private var isSizeChange = false
-    var widthView = 0f
-    var heightView = 0f
-
     private val paint = Paint()
+
+    private val listText: ArrayList<QBTextView> = arrayListOf()
+    var textSelected: QBTextView? = null
 
     init {
         setWillNotDraw(false)
+        initAttribute()
         initIcon()
         initPaint()
         scaleGestureDetector = ScaleGestureDetector(context, ScaleListener())
@@ -62,11 +62,20 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
         }
     }
 
-    private fun initViewSize() {
-        measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-        widthView = measuredWidth.toFloat()
-        heightView = measuredHeight.toFloat()
-        Log.v("initViewSize", "$widthView - $heightView")
+    private fun initAttribute() {
+        context.theme.obtainStyledAttributes(
+            attrs,
+            R.styleable.QBStickerStyle,
+            0, 0
+        ).apply {
+            try {
+                isEnableTransformIcon = getBoolean(R.styleable.QBStickerStyle_isEnableTransformIcon, isEnableTransformIcon)
+                isEnableDeleteIcon = getBoolean(R.styleable.QBStickerStyle_isEnableDeleteIcon, isEnableDeleteIcon)
+                lineSelectedColor = Color.parseColor(getString(R.styleable.QBStickerStyle_lineSelectedColor))
+            } finally {
+                recycle()
+            }
+        }
     }
 
     private fun initIcon() {
@@ -130,9 +139,10 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
     }
 
     private fun drawTextComponent(canvas: Canvas, qbTextView: QBTextView) {
-        qbTextView.drawFrameText(canvas, icTransform, icDelete)
+        val transformIcon = if (isEnableTransformIcon) icTransform else null
+        val deleteIcon = if (isEnableDeleteIcon) icDelete else null
+        qbTextView.drawFrameText(canvas, transformIcon, deleteIcon, lineSelectedColor)
     }
-
 
     private fun findEntity(event: MotionEvent): QBTextView? {
         var outputEntity: QBTextView? = null
@@ -148,13 +158,17 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
 
     private fun checkTouchByIcon(x: Float, y: Float) {
         textSelected?.let {
-            isTransformTouched = it.dstTransformRect.contains(x.toInt(), y.toInt()) == true
-            isDeleteTouched = it.dstDeleteRect.contains(x.toInt(), y.toInt()) == true
-            if (isDeleteTouched) {
-                qbStickerViewListener?.onCurrentStickerDeleted()
-                this.removeView(it)
-                listText.remove(it)
-                textSelected = null
+            if (isEnableTransformIcon)
+                isTransformTouched = it.dstTransformRect.contains(x.toInt(), y.toInt()) == true
+
+            if (isEnableDeleteIcon) {
+                isDeleteTouched = it.dstDeleteRect.contains(x.toInt(), y.toInt()) == true
+                if (isDeleteTouched) {
+                    qbStickerViewListener?.onCurrentStickerDeleted()
+                    this.removeView(it)
+                    listText.remove(it)
+                    textSelected = null
+                }
             }
         }
     }
@@ -192,6 +206,7 @@ class QBStickerView(context: Context, attrs: AttributeSet) : FrameLayout(context
         override fun onRotateBegin(detector: RotateGestureDetector): Boolean {
             return true
         }
+
         override fun onRotate(detector: RotateGestureDetector): Boolean {
             if (textSelected != null && isPointerDown) {
                 textSelected?.updateRotate(-detector.rotationDegreesDelta)
