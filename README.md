@@ -7,21 +7,22 @@ A view which can add Text and zoom,drag,rotate,delete it
 ![](https://github.com/QuanCua/QBSticker/blob/main/screenshots/example1.jpg)
 
 ## Setting Gradle
-1.Add the JitPack repository to your build file
-	```
-	allprojects {
-		repositories {
-			...
-			maven { url 'https://jitpack.io' }
-		}
+1. Add the JitPack repository to your build file
+```
+allprojects {
+	repositories {
+		...
+		maven { url 'https://jitpack.io' }
 	}
-        ```
+}
+```
 	
 2. Add the dependency
-	```dependencies {
-	        	implementation 'com.github.QuanCua:QBSticker:1.0'
-        	}
-	```     
+```
+dependencies {
+	implementation 'com.github.QuanCua:QBSticker:1.0'
+}
+```     
 
 ## Usage
 **Tips**: QBStickerView extends FrameLayout
