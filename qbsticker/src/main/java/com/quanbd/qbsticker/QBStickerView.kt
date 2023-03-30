@@ -62,6 +62,11 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         }
     }
 
+    private fun initPaint() {
+        paint.isAntiAlias = true
+        paint.style = Paint.Style.STROKE
+    }
+
     private fun initAttribute() {
         context.theme.obtainStyledAttributes(
             attrs,
@@ -87,9 +92,16 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         icDelete = bitmapDelete?.let { BitmapUtils.resizeBitmap(it, ICON_SIZE, ICON_SIZE) }
     }
 
-    private fun initPaint() {
-        paint.isAntiAlias = true
-        paint.style = Paint.Style.STROKE
+    fun setTransformIcon(resource : Int) {
+        val bitmapTransform = BitmapUtils.getBitmapFromDrawable(context, resource)
+        icTransform = bitmapTransform?.let { BitmapUtils.resizeBitmap(it, ICON_SIZE, ICON_SIZE) }
+        invalidate()
+    }
+
+    fun setDeleteIcon(resource : Int) {
+        val bitmapDelete = BitmapUtils.getBitmapFromDrawable(context, resource)
+        icDelete = bitmapDelete?.let { BitmapUtils.resizeBitmap(it, ICON_SIZE, ICON_SIZE) }
+        invalidate()
     }
 
     fun duplicateText() {
