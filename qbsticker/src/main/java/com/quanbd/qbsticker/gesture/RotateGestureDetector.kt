@@ -2,63 +2,36 @@ package com.quanbd.qbsticker.gesture
 
 import android.content.Context
 import android.view.MotionEvent
+import kotlin.math.atan2
 
-/**
- * @author Almer Thie (code.almeros.com)
- * Copyright (c) 2013, Almer Thie (code.almeros.com)
- *
- *
- * All rights reserved.
- *
- *
- * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
- *
- *
- * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
- * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the distribution.
- *
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
- * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
- * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
- */
-class RotateGestureDetector(context: Context?, private val mListener: OnRotateGestureListener) :
+class RotateGestureDetector(context: Context, private val listener: OnRotateGestureListener) :
     TwoFingerGestureDetector(context) {
-    private var mSloppyGesture = false
+    private var sloppyGesture = false
+
     override fun handleStartProgressEvent(actionCode: Int, event: MotionEvent?) {
         when (actionCode) {
             MotionEvent.ACTION_POINTER_DOWN -> {
-                // At least the second finger is on screen now
-                resetState() // In case we missed an UP/CANCEL event
-                mPrevEvent = MotionEvent.obtain(event)
-                timeDelta = 0
-                updateStateByEvent(event!!)
+                event?.let {
+                    resetState()
+                    prevEvent = MotionEvent.obtain(it)
+                    timeDelta = 0
+                    updateStateByEvent(it)
 
-                // See if we have a sloppy gesture
-                mSloppyGesture = isSloppyGesture(event)
-                if (!mSloppyGesture) {
-                    // No, start gesture now
-                    isInProgress = mListener.onRotateBegin(this)
+                    sloppyGesture = isSloppyGesture(it)
+                    if (!sloppyGesture) {
+                        isInProgress = listener.onRotateBegin(this)
+                    }
                 }
             }
             MotionEvent.ACTION_MOVE -> {
-                if (!mSloppyGesture) {
-                    return
-                }
+                if (!sloppyGesture) return
 
-                // See if we still have a sloppy gesture
-                mSloppyGesture = isSloppyGesture(event!!)
-                if (!mSloppyGesture) {
-                    // No, start normal gesture now
-                    isInProgress = mListener.onRotateBegin(this)
+                sloppyGesture = if (event != null) isSloppyGesture(event) else false
+                if (!sloppyGesture) {
+                    isInProgress = listener.onRotateBegin(this)
                 }
             }
-            MotionEvent.ACTION_POINTER_UP -> if (!mSloppyGesture) {
+            MotionEvent.ACTION_POINTER_UP -> if (!sloppyGesture) {
                 return
             }
         }
@@ -67,30 +40,28 @@ class RotateGestureDetector(context: Context?, private val mListener: OnRotateGe
     override fun handleInProgressEvent(actionCode: Int, event: MotionEvent?) {
         when (actionCode) {
             MotionEvent.ACTION_POINTER_UP -> {
-                // Gesture ended but
-                updateStateByEvent(event!!)
-                if (!mSloppyGesture) {
-                    mListener.onRotateEnd(this)
+                event?.let { updateStateByEvent(it) }
+                if (!sloppyGesture) {
+                    listener.onRotateEnd(this)
                 }
                 resetState()
             }
             MotionEvent.ACTION_CANCEL -> {
-                if (!mSloppyGesture) {
-                    mListener.onRotateEnd(this)
+                if (!sloppyGesture) {
+                    listener.onRotateEnd(this)
                 }
                 resetState()
             }
             MotionEvent.ACTION_MOVE -> {
-                updateStateByEvent(event!!)
+                event?.let {
+                    updateStateByEvent(it)
 
-                // Only accept the event if our relative pressure is within
-                // a certain limit. This can help filter shaky data as a
-                // finger is lifted.
-                if (mCurrPressure / mPrevPressure > PRESSURE_THRESHOLD) {
-                    val updatePrevious = mListener.onRotate(this)
-                    if (updatePrevious) {
-                        mPrevEvent!!.recycle()
-                        mPrevEvent = MotionEvent.obtain(event)
+                    if (currentPressure / prevPressure > PRESSURE_THRESHOLD) {
+                        val updatePrevious = listener.onRotate(this)
+                        if (updatePrevious) {
+                            prevEvent!!.recycle()
+                            prevEvent = MotionEvent.obtain(it)
+                        }
                     }
                 }
             }
@@ -99,43 +70,25 @@ class RotateGestureDetector(context: Context?, private val mListener: OnRotateGe
 
     override fun resetState() {
         super.resetState()
-        mSloppyGesture = false
+        sloppyGesture = false
     }
 
-    /**
-     * Return the rotation difference from the previous rotate event to the current
-     * event.
-     *
-     * @return The current rotation //difference in degrees.
-     */
     val rotationDegreesDelta: Float
         get() {
             val diffRadians =
-                Math.atan2(mPrevFingerDiffY.toDouble(), mPrevFingerDiffX.toDouble()) - Math.atan2(
-                    mCurrFingerDiffY.toDouble(),
-                    mCurrFingerDiffX.toDouble()
+                atan2(prevFingerDiffY.toDouble(), prevFingerDiffX.toDouble()) - atan2(
+                    currentFingerDiffY.toDouble(),
+                    currentFingerDiffX.toDouble()
                 )
             return (diffRadians * 180 / Math.PI).toFloat()
         }
 
-    /**
-     * Listener which must be implemented which is used by RotateGestureDetector
-     * to perform callbacks to any implementing class which is registered to a
-     * RotateGestureDetector via the constructor.
-     *
-     * @see SimpleOnRotateGestureListener
-     */
     interface OnRotateGestureListener {
         fun onRotate(detector: RotateGestureDetector): Boolean
         fun onRotateBegin(detector: RotateGestureDetector): Boolean
         fun onRotateEnd(detector: RotateGestureDetector)
     }
 
-    /**
-     * Helper class which may be extended and where the methods may be
-     * implemented. This way it is not necessary to implement all methods
-     * of OnRotateGestureListener.
-     */
     open class SimpleOnRotateGestureListener : OnRotateGestureListener {
         override fun onRotate(detector: RotateGestureDetector): Boolean {
             return false
@@ -146,7 +99,7 @@ class RotateGestureDetector(context: Context?, private val mListener: OnRotateGe
         }
 
         override fun onRotateEnd(detector: RotateGestureDetector) {
-            // Do nothing, overridden implementation may be used
+
         }
     }
 }

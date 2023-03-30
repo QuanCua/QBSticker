@@ -27,6 +27,7 @@
         android:textColor="@color/white"
         android:textSize="16sp"
         android:background="#597A0000"
+        android:hint="Enter your text"
         app:layout_constraintTop_toBottomOf="@+id/btnRatio_11"
         />
 
