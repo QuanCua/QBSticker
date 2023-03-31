@@ -4,5 +4,5 @@ interface QBStickerViewListener {
     fun onEntitySelected(qbSticker: QBStickerModel?)
     fun onCurrentStickerDeleted()
     fun onActionUp()
-    fun updateTextStickerData(qbSticker: QBStickerModel)
+    fun updateTextStickerData(qbTextView: QBTextView)
 }

@@ -4,7 +4,10 @@ import android.content.Context
 import android.graphics.*
 import android.text.InputFilter
 import android.util.AttributeSet
+import android.util.Log
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
+import com.quanbd.qbsticker.util.FontUtils
 import com.quanbd.qbsticker.util.MathUtils
 import kotlin.math.acos
 import kotlin.math.sqrt
@@ -38,7 +41,7 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         this.layoutParams = params
-        this.isSingleLine = true
+//        this.isSingleLine = true
         this.text = DEFAULT_CONTENT
         this.textSize = 30f
         this.textAlignment = TEXT_ALIGNMENT_CENTER
@@ -58,8 +61,28 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
 
     private fun initViewSize() {
         measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-        this.widthView = paint.measureText(text.toString()) + (PADDING_HORIZONTAL * 2)
+        this.widthView = paint.measureText(text.toString())
         this.heightView = measuredHeight.toFloat()
+    }
+
+    private fun updateViewSizeByTextChanged() {
+        this.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val width = this@QBTextView.width
+                val height = this@QBTextView.height
+
+                widthView = width.toFloat()
+                heightView = height.toFloat()
+
+                val oldCenter = absoluteCenter(srcPoints[2], srcPoints[5])
+                setSrcPoint(widthView, heightView)
+                val newCenter = absoluteCenter(srcPoints[2], srcPoints[5])
+                calculationCenter(oldCenter, newCenter)
+
+                this@QBTextView.viewTreeObserver.removeOnPreDrawListener(this)
+                return false
+            }
+        })
     }
 
     fun setOptions(icTransform: Bitmap?, icDelete: Bitmap?) {
@@ -80,7 +103,7 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         newModel?.let {
             val translationBonus = 4f
             this@QBTextView.text = text
-            this@QBTextView.setTextColor(Color.parseColor(it.color))
+            this@QBTextView.setTextColor(it.color)
             when (it.align) {
                 QBStickerModel.ALIGN_LEFT, QBStickerModel.ALIGN_JUSTIFIED ->
                     this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_START
@@ -100,6 +123,27 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         }
     }
 
+    fun invalidateModel() {
+        model.apply {
+            this@QBTextView.text = this.text
+            this@QBTextView.setTextColor(this.color)
+            this@QBTextView.typeface = FontUtils.getFontByKey(this.fontKey)
+            when (this.align) {
+                QBStickerModel.ALIGN_LEFT, QBStickerModel.ALIGN_JUSTIFIED ->
+                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_START
+                QBStickerModel.ALIGN_RIGHT ->
+                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_END
+                else ->
+                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_CENTER
+            }
+            this@QBTextView.translationX = this.translation.x
+            this@QBTextView.translationY = this.translation.y
+            this@QBTextView.scaleX = this.scale
+            this@QBTextView.scaleY = this.scale
+            this@QBTextView.rotation = this.rotate
+        }
+    }
+    
     fun updateTranslation(translationValue: PointF) {
         model.translation.x += translationValue.x
         model.translation.y += translationValue.y
@@ -127,6 +171,14 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
     fun getRectAroundText() : Rect {
         this.getHitRect(hitRect)
         return hitRect
+    }
+
+    fun getWidthFrame() : Float {
+        return srcPoints[2]
+    }
+
+    fun getHeightFrame() : Float {
+        return srcPoints[5]
     }
 
     fun rotateAndScaleByIcon(focusDelta: PointF) {
@@ -257,11 +309,7 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
                     setSrcPoint(this.widthView, this.heightView)
                 }
             } else {
-                initViewSize()
-                setSrcPoint(this.widthView, this.heightView)
-                val oldCenter = absoluteCenter(this.width.toFloat(), this.height.toFloat())
-                val newCenter = absoluteCenter(this.widthView, this.heightView)
-                calculationCenter(oldCenter, newCenter)
+                updateViewSizeByTextChanged()
             }
         } catch (e: java.lang.Exception) {
             e.printStackTrace()
@@ -269,15 +317,15 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
     }
 
     private fun setSrcPoint(width: Float, height: Float) {
-        srcPoints[0] = 0f
+        srcPoints[0] = -PADDING_HORIZONTAL
         srcPoints[1] = 0f
-        srcPoints[2] = width
+        srcPoints[2] = width + PADDING_HORIZONTAL
         srcPoints[3] = 0f
-        srcPoints[4] = width
+        srcPoints[4] = width + PADDING_HORIZONTAL
         srcPoints[5] = height
-        srcPoints[6] = 0f
+        srcPoints[6] = -PADDING_HORIZONTAL
         srcPoints[7] = height
-        srcPoints[8] = 0f
+        srcPoints[8] = -PADDING_HORIZONTAL
         srcPoints[9] = 0f
     }
 
@@ -295,7 +343,6 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        heightView = this.measuredHeight.toFloat()
-        setMeasuredDimension(this.widthView.toInt(), heightView.toInt())
+        setMeasuredDimension(measuredWidth , measuredHeight)
     }
 }

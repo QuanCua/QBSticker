@@ -125,6 +125,20 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         this.addView(listText[0])
     }
 
+    fun deleteTextById(textID: String) {
+        val iterator = listText.iterator()
+        while (iterator.hasNext()) {
+            val item = iterator.next()
+            if (item.model.id == textID) {
+                this.removeView(item)
+                listText.remove(item)
+                textSelected = null
+                return
+            }
+        }
+        invalidate()
+    }
+
     fun updateSize(newWidth: Int, newHeight: Int) {
         isSizeChange = true
         this.layoutParams.apply {
@@ -274,6 +288,7 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
             listText.forEach {
                 it.updateTranslation(PointF(-calX, -calY))
                 it.updateScale(newSize / oldSize)
+                qbStickerViewListener?.updateTextStickerData(it)
             }
         }
     }

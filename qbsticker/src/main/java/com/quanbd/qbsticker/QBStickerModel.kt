@@ -13,7 +13,7 @@ class QBStickerModel(
     var id: String,
     var text: String,
     var fontKey : String,
-    var color : String,
+    var color : Int,
     var align : Int,
     var isSelected: Boolean,
     var translation: PointF,
@@ -55,7 +55,7 @@ class QBStickerModel(
         var fontKey = FontUtils.DEFAULT_FONT
             private set
 
-        var color = "#ffffff"
+        var color = Color.WHITE
             private set
 
         var align = ALIGN_CENTER
@@ -83,7 +83,7 @@ class QBStickerModel(
         fun id(_id: String) = apply { id = _id }
         fun text(_text: String) = apply { text = _text }
         fun fontKey(_fontKey: String) = apply { fontKey = _fontKey }
-        fun color(_color: String) = apply { color = _color }
+        fun color(_color: Int) = apply { color = _color }
         fun align(_align: Int) = apply { align = _align }
         fun isSelected(_isSelected: Boolean) = apply { isSelected = _isSelected }
         fun translation(_translation: PointF) = apply { translation = _translation }

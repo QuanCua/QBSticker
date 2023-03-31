@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.quanbd.qbsticker.QBStickerModel
 import com.quanbd.qbsticker.QBStickerView
 import com.quanbd.qbsticker.QBStickerViewListener
+import com.quanbd.qbsticker.QBTextView
 
 class MainActivity : AppCompatActivity() {
     private lateinit var qbStickerView: QBStickerView
@@ -68,7 +69,7 @@ class MainActivity : AppCompatActivity() {
 
             }
 
-            override fun updateTextStickerData(qbSticker: QBStickerModel) {
+            override fun updateTextStickerData(qbTextView: QBTextView) {
 
             }
         }
