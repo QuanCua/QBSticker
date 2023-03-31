@@ -16,6 +16,7 @@ class QBStickerModel(
     var color : Int,
     var align : Int,
     var isSelected: Boolean,
+    var isVisible: Boolean,
     var translation: PointF,
     var rotate: Float,
     var scale: Float,
@@ -38,6 +39,7 @@ class QBStickerModel(
         builder.color,
         builder.align,
         builder.isSelected,
+        builder.isVisible,
         builder.translation,
         builder.rotate,
         builder.scale,
@@ -64,6 +66,9 @@ class QBStickerModel(
         var isSelected = false
             private set
 
+        var isVisible = true
+            private set
+
         var translation = PointF(0f, 0f)
             private set
 
@@ -86,6 +91,7 @@ class QBStickerModel(
         fun color(_color: Int) = apply { color = _color }
         fun align(_align: Int) = apply { align = _align }
         fun isSelected(_isSelected: Boolean) = apply { isSelected = _isSelected }
+        fun isVisible(_isVisible: Boolean) = apply { isVisible = _isVisible }
         fun translation(_translation: PointF) = apply { translation = _translation }
         fun rotate(_rotate: Float) = apply { rotate = _rotate }
         fun scale(_scale: Float) = apply { scale = _scale }

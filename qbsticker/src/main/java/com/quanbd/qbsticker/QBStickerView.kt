@@ -14,12 +14,14 @@ import com.quanbd.qbsticker.gesture.MoveGestureDetector
 import com.quanbd.qbsticker.gesture.RotateGestureDetector
 import com.quanbd.qbsticker.util.BitmapUtils
 
-class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLayout(context, attrs) {
+class QBStickerView(context: Context, private val attrs: AttributeSet) :
+    FrameLayout(context, attrs) {
     companion object {
         const val TAG = "QBStickerView"
         val widthScreen = Resources.getSystem().displayMetrics.widthPixels
         val ICON_SIZE = widthScreen * 0.075f
     }
+
     /** Attribute */
     private var isEnableTransformIcon = true
     private var isEnableDeleteIcon = true
@@ -37,9 +39,11 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
     private var isDeleteTouched = false
     private var isPointerDown = false
     private var isSizeChange = false
+    var isEnableTouchEvent = true
+    var isEnableFrameSelected = true
     private val paint = Paint()
 
-    private val listText: ArrayList<QBTextView> = arrayListOf()
+    val listText: ArrayList<QBTextView> = arrayListOf()
     var textSelected: QBTextView? = null
 
     init {
@@ -54,11 +58,15 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
 
         setOnTouchListener { view, event ->
             view.performClick()
-            scaleGestureDetector?.onTouchEvent(event)
-            rotateGestureDetector?.onTouchEvent(event)
-            moveGestureDetector?.onTouchEvent(event)
-            gestureDetectorCompat?.onTouchEvent(event)
-            true
+            if (isEnableTouchEvent) {
+                scaleGestureDetector?.onTouchEvent(event)
+                rotateGestureDetector?.onTouchEvent(event)
+                moveGestureDetector?.onTouchEvent(event)
+                gestureDetectorCompat?.onTouchEvent(event)
+                true
+            } else {
+                false
+            }
         }
     }
 
@@ -74,9 +82,14 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
             0, 0
         ).apply {
             try {
-                isEnableTransformIcon = getBoolean(R.styleable.QBStickerStyle_isEnableTransformIcon, isEnableTransformIcon)
-                isEnableDeleteIcon = getBoolean(R.styleable.QBStickerStyle_isEnableDeleteIcon, isEnableDeleteIcon)
-                lineSelectedColor = Color.parseColor(getString(R.styleable.QBStickerStyle_lineSelectedColor))
+                isEnableTransformIcon = getBoolean(
+                    R.styleable.QBStickerStyle_isEnableTransformIcon,
+                    isEnableTransformIcon
+                )
+                isEnableDeleteIcon =
+                    getBoolean(R.styleable.QBStickerStyle_isEnableDeleteIcon, isEnableDeleteIcon)
+                lineSelectedColor =
+                    Color.parseColor(getString(R.styleable.QBStickerStyle_lineSelectedColor))
             } finally {
                 recycle()
             }
@@ -92,28 +105,43 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         icDelete = bitmapDelete?.let { BitmapUtils.resizeBitmap(it, ICON_SIZE, ICON_SIZE) }
     }
 
-    fun setTransformIcon(resource : Int) {
+    fun setTransformIcon(resource: Int) {
         val bitmapTransform = BitmapUtils.getBitmapFromDrawable(context, resource)
         icTransform = bitmapTransform?.let { BitmapUtils.resizeBitmap(it, ICON_SIZE, ICON_SIZE) }
         invalidate()
     }
 
-    fun setDeleteIcon(resource : Int) {
+    fun setDeleteIcon(resource: Int) {
         val bitmapDelete = BitmapUtils.getBitmapFromDrawable(context, resource)
         icDelete = bitmapDelete?.let { BitmapUtils.resizeBitmap(it, ICON_SIZE, ICON_SIZE) }
         invalidate()
     }
 
-    fun duplicateText() {
+    fun duplicateText(newId: String ?= null, newStartTime: Long? = null, newEndTime: Long? = null) {
         textSelected?.let {
             val newText = QBTextView(context, null).apply {
                 textSize = it.textSize / resources.displayMetrics.scaledDensity
                 typeface = it.typeface
                 updateModel(it.model)
+                if (newId != null)
+                    it.model.id = newId
+                if (newStartTime != null)
+                    it.model.startTime = newStartTime
+                if (newEndTime != null)
+                    it.model.endTime = newEndTime
             }
             newText.setOptions(icTransform, icDelete)
             listText.add(0, newText)
             this.addView(listText[0])
+        }
+    }
+
+    fun addListText(_listText: ArrayList<QBTextView>) {
+        listText.clear()
+        this.removeAllViews()
+        listText.addAll(_listText)
+        listText.forEach {
+            this.addView(it)
         }
     }
 
@@ -139,6 +167,50 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         invalidate()
     }
 
+    private fun enableFrameSelected(isEnable: Boolean) {
+        isEnableFrameSelected = isEnable
+        invalidate()
+    }
+
+    fun getBitmapById(textID: String): Bitmap {
+        enableFrameSelected(false)
+        listText.forEach {
+            if (it.model.id != textID)
+                it.alpha = 0f
+        }
+
+        var bitmapOutput: Bitmap
+        val bitmapParent = Bitmap.createBitmap(this.width, this.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmapParent)
+        draw(canvas)
+        bitmapOutput = bitmapParent
+
+        listText.forEach {
+            if (it.model.id == textID) {
+                val rect = it.getRectAroundText()
+                val bitmapChild = Bitmap.createBitmap(
+                    bitmapParent,
+                    rect.left,
+                    rect.top,
+                    rect.width(),
+                    rect.height()
+                )
+                bitmapOutput = bitmapChild
+            } else
+                it.alpha = 1f
+        }
+        enableFrameSelected(true)
+        return bitmapOutput
+    }
+
+    fun updateTimeVisibleById(id: String, startTime: Long, endTime: Long) {
+        listText.find { it.model.id == id }?.apply {
+            model.startTime = startTime
+            model.endTime = endTime
+            invalidateModel()
+        }
+    }
+
     fun updateSize(newWidth: Int, newHeight: Int) {
         isSizeChange = true
         this.layoutParams.apply {
@@ -159,7 +231,8 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         super.onDraw(canvas)
         canvas.save()
         textSelected?.let {
-            drawTextComponent(canvas, it)
+            if (isEnableFrameSelected)
+                drawTextComponent(canvas, it)
         }
         canvas.restore()
     }
@@ -170,10 +243,39 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         qbTextView.drawFrameText(canvas, transformIcon, deleteIcon, lineSelectedColor)
     }
 
+    fun setVisibilityEntity(qbTextView: QBTextView, isVisible: Boolean) {
+        if (isVisible) {
+            qbTextView.model.isVisible = true
+            qbTextView.invalidateModel()
+            enableFrameSelected(true)
+        } else {
+            qbTextView.model.isVisible = false
+            qbTextView.invalidateModel()
+            enableFrameSelected(false)
+        }
+    }
+
+    fun selectEntityById(id: String) {
+        listText.forEach {
+            if (it.model.id == id) {
+                it.model.isSelected = true
+                textSelected = it
+                qbStickerViewListener?.onEntitySelected(textSelected?.model)
+            } else
+                it.model.isSelected = false
+        }
+    }
+
+    fun unselectEntity() {
+        textSelected?.model?.isSelected = false
+        textSelected = null
+        qbStickerViewListener?.onEntitySelected(null)
+    }
+
     private fun findEntity(event: MotionEvent): QBTextView? {
         var outputEntity: QBTextView? = null
         listText.forEach {
-            if (it.isInsideTextArea(PointF(event.x, event.y)) && !it.model.isSelected) {
+            if (it.isInsideTextArea(PointF(event.x, event.y)) && !it.model.isSelected && it.model.isVisible) {
                 it.model.isSelected = true
                 outputEntity = it
             } else
@@ -220,9 +322,11 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
 
     inner class ScaleListener : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            if (textSelected != null && isPointerDown) {
-                textSelected?.updateScale(detector.scaleFactor - 1.0f, true)
-                invalidate()
+            textSelected?.let {
+                if (it.model.isVisible && isPointerDown) {
+                    textSelected?.updateScale(detector.scaleFactor - 1.0f, true)
+                    invalidate()
+                }
             }
             return true
         }
@@ -234,9 +338,11 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
         }
 
         override fun onRotate(detector: RotateGestureDetector): Boolean {
-            if (textSelected != null && isPointerDown) {
-                textSelected?.updateRotate(-detector.rotationDegreesDelta)
-                invalidate()
+            textSelected?.let {
+                if (it.model.isVisible && isPointerDown) {
+                    textSelected?.updateRotate(-detector.rotationDegreesDelta)
+                    invalidate()
+                }
             }
             return true
         }
@@ -245,13 +351,15 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) : FrameLa
     inner class MoveListener : MoveGestureDetector.SimpleOnMoveGestureListener() {
         override fun onMove(detector: MoveGestureDetector): Boolean {
             textSelected?.let {
-                if (isTransformTouched)
-                    it.rotateAndScaleByIcon(detector.focusDelta)
-                else
-                    if (!isPointerDown && !isDeleteTouched)
-                        it.updateTranslation(detector.focusDelta)
+                if (it.model.isVisible) {
+                    if (isTransformTouched)
+                        it.rotateAndScaleByIcon(detector.focusDelta)
+                    else
+                        if (!isPointerDown && !isDeleteTouched)
+                            it.updateTranslation(detector.focusDelta)
 
-                invalidate()
+                    invalidate()
+                }
             }
             return true
         }

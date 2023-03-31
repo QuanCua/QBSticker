@@ -5,8 +5,10 @@ import android.graphics.*
 import android.text.InputFilter
 import android.util.AttributeSet
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import androidx.core.view.isVisible
 import com.quanbd.qbsticker.util.FontUtils
 import com.quanbd.qbsticker.util.MathUtils
 import kotlin.math.acos
@@ -128,6 +130,7 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
             this@QBTextView.text = this.text
             this@QBTextView.setTextColor(this.color)
             this@QBTextView.typeface = FontUtils.getFontByKey(this.fontKey)
+            this@QBTextView.visibility = if (this.isVisible) View.VISIBLE else View.GONE
             when (this.align) {
                 QBStickerModel.ALIGN_LEFT, QBStickerModel.ALIGN_JUSTIFIED ->
                     this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_START
