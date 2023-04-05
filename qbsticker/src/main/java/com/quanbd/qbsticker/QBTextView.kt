@@ -95,37 +95,8 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         dstDeleteRect = Rect(0, 0, 32 shl 1, 32 shl 1)
     }
 
-    fun updateModel(newModel: QBStickerModel? = null) {
-        if (newModel != null) {
-            model = newModel.copy()
-            model.id = System.nanoTime().toString()
-            model.isSelected = false
-        }
-
-        newModel?.let {
-            val translationBonus = 4f
-            this@QBTextView.text = text
-            this@QBTextView.setTextColor(it.color)
-            when (it.align) {
-                QBStickerModel.ALIGN_LEFT, QBStickerModel.ALIGN_JUSTIFIED ->
-                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_START
-                QBStickerModel.ALIGN_RIGHT ->
-                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_END
-                else ->
-                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_CENTER
-            }
-
-            model.translation.x = it.translation.x + translationBonus
-            model.translation.y = it.translation.y + translationBonus
-            this@QBTextView.translationX = it.translation.x + translationBonus
-            this@QBTextView.translationY = it.translation.y + translationBonus
-            this@QBTextView.scaleX = it.scale
-            this@QBTextView.scaleY = it.scale
-            this@QBTextView.rotation = it.rotate
-        }
-    }
-
     fun invalidateModel() {
+        setSrcPoint(widthView, heightView)
         model.apply {
             this@QBTextView.text = this.text
             this@QBTextView.setTextColor(this.color)
@@ -146,7 +117,12 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
             this@QBTextView.rotation = this.rotate
         }
     }
-    
+
+    fun visibleText(isVisible : Boolean) {
+        model.isVisible = isVisible
+        this.visibility = if (isVisible) View.VISIBLE else View.GONE
+    }
+
     fun updateTranslation(translationValue: PointF) {
         model.translation.x += translationValue.x
         model.translation.y += translationValue.y
@@ -212,29 +188,6 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
     }
-
-    /*fun flip() {
-        if (!isFlip) {
-            // Lật văn bản theo trục Y
-            rotationY = 180f
-            // Hoán đổi chiều của văn bản bằng ma trận
-            val matrix = Matrix()
-            matrix.preScale(-1f, 1f)
-            paint.textScaleX = -1f
-            matrix.postTranslate(width.toFloat(), 0f)
-            this.matrix.set(matrix)
-            isFlip = true
-        } else {
-            // Đặt lại văn bản và ma trận về trạng thái ban đầu
-            rotationY = 0f
-            val matrix = Matrix()
-            matrix.preScale(1f, 1f)
-            paint.textScaleX = 1f
-            matrix.postTranslate(0f, 0f)
-            this.matrix.set(matrix)
-            isFlip = false
-        }
-    }*/
 
     fun drawFrameText(
         canvas: Canvas,

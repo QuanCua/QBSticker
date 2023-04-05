@@ -58,15 +58,11 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
 
         setOnTouchListener { view, event ->
             view.performClick()
-            if (isEnableTouchEvent) {
-                scaleGestureDetector?.onTouchEvent(event)
-                rotateGestureDetector?.onTouchEvent(event)
-                moveGestureDetector?.onTouchEvent(event)
-                gestureDetectorCompat?.onTouchEvent(event)
-                true
-            } else {
-                false
-            }
+            scaleGestureDetector?.onTouchEvent(event)
+            rotateGestureDetector?.onTouchEvent(event)
+            moveGestureDetector?.onTouchEvent(event)
+            gestureDetectorCompat?.onTouchEvent(event)
+            isEnableTouchEvent
         }
     }
 
@@ -121,18 +117,21 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
         textSelected?.let {
             val newText = QBTextView(context, null).apply {
                 textSize = it.textSize / resources.displayMetrics.scaledDensity
-                typeface = it.typeface
-                updateModel(it.model)
+                val newModel = it.model.copy()
                 if (newId != null)
-                    it.model.id = newId
+                    newModel.id = newId
                 if (newStartTime != null)
-                    it.model.startTime = newStartTime
+                    newModel.startTime = newStartTime
                 if (newEndTime != null)
-                    it.model.endTime = newEndTime
+                    newModel.endTime = newEndTime
+                this.model = newModel
+                invalidateModel()
             }
             newText.setOptions(icTransform, icDelete)
-            listText.add(0, newText)
-            this.addView(listText[0])
+            listText.add(newText)
+            this.addView(newText)
+            textSelected = newText
+            invalidate()
         }
     }
 
@@ -141,8 +140,10 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
         this.removeAllViews()
         listText.addAll(_listText)
         listText.forEach {
+            it.setOptions(icTransform, icDelete)
             this.addView(it)
         }
+        invalidate()
     }
 
     fun addText() {
@@ -260,7 +261,7 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
             if (it.model.id == id) {
                 it.model.isSelected = true
                 textSelected = it
-                qbStickerViewListener?.onEntitySelected(textSelected?.model)
+                qbStickerViewListener?.onEntitySelected(textSelected)
             } else
                 it.model.isSelected = false
         }
@@ -292,7 +293,7 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
             if (isEnableDeleteIcon) {
                 isDeleteTouched = it.dstDeleteRect.contains(x.toInt(), y.toInt()) == true
                 if (isDeleteTouched) {
-                    qbStickerViewListener?.onCurrentStickerDeleted()
+                    qbStickerViewListener?.onEntityDeleted(it.model.id)
                     this.removeView(it)
                     listText.remove(it)
                     textSelected = null
@@ -314,7 +315,7 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             textSelected = findEntity(e)
-            qbStickerViewListener?.onEntitySelected(textSelected?.model)
+            qbStickerViewListener?.onEntitySelected(textSelected)
             invalidate()
             return true
         }
@@ -379,7 +380,6 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
             super.onMoveFinish(detector)
             Log.v(TAG, "onMoveFinish")
             isPointerDown = false
-            qbStickerViewListener?.onActionUp()
         }
     }
 
@@ -396,7 +396,7 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
             listText.forEach {
                 it.updateTranslation(PointF(-calX, -calY))
                 it.updateScale(newSize / oldSize)
-                qbStickerViewListener?.updateTextStickerData(it)
+                qbStickerViewListener?.onUpdateEntityModel(it.model)
             }
         }
     }

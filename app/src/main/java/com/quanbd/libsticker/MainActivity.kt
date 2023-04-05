@@ -57,21 +57,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         qbStickerView.qbStickerViewListener = object : QBStickerViewListener {
-            override fun onEntitySelected(qbSticker: QBStickerModel?) {
-                Log.v("qbStickerViewListener", "$qbSticker")
-            }
-
-            override fun onCurrentStickerDeleted() {
+            override fun onEntitySelected(qbTextView: QBTextView?) {
 
             }
 
-            override fun onActionUp() {
+            override fun onEntityDeleted(id: String) {
 
             }
 
-            override fun updateTextStickerData(qbTextView: QBTextView) {
+            override fun onUpdateEntityModel(currentModel: QBStickerModel) {
 
             }
+
         }
 
         edtInputText.addTextChangedListener(object : TextWatcher {
