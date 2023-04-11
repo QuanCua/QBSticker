@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.PointF
 import android.graphics.Typeface
+import android.text.Layout
 import androidx.annotation.FloatRange
 import androidx.core.content.res.ResourcesCompat
 import com.google.gson.Gson
@@ -12,6 +13,7 @@ import com.quanbd.qbsticker.util.FontUtils
 class QBStickerModel(
     var id: String,
     var text: String,
+    var textSize: Float,
     var fontKey : String,
     var color : Int,
     var align : Int,
@@ -35,6 +37,7 @@ class QBStickerModel(
     private constructor(builder: Builder) : this(
         builder.id,
         builder.text,
+        builder.textSize,
         builder.fontKey,
         builder.color,
         builder.align,
@@ -52,6 +55,9 @@ class QBStickerModel(
             private set
 
         var text = QBTextView.DEFAULT_CONTENT
+            private set
+
+        var textSize = QBTextView.DEFAULT_SIZE
             private set
 
         var fontKey = FontUtils.DEFAULT_FONT
@@ -87,6 +93,7 @@ class QBStickerModel(
 
         fun id(_id: String) = apply { id = _id }
         fun text(_text: String) = apply { text = _text }
+        fun textSize(_textSize: Float) = apply { textSize = _textSize }
         fun fontKey(_fontKey: String) = apply { fontKey = _fontKey }
         fun color(_color: Int) = apply { color = _color }
         fun align(_align: Int) = apply { align = _align }
@@ -112,4 +119,15 @@ class QBStickerModel(
         return Pair(typeface, "roboto_regular")
     }
 
+    val textAlignment
+        get() = getAlignment()
+
+    private fun getAlignment(): Layout.Alignment {
+        return when(align) {
+            ALIGN_LEFT -> Layout.Alignment.ALIGN_NORMAL
+            ALIGN_JUSTIFIED -> Layout.Alignment.ALIGN_NORMAL
+            ALIGN_RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
+            else -> Layout.Alignment.ALIGN_CENTER
+        }
+    }
 }

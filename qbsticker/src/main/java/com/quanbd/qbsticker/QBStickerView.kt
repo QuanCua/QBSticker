@@ -10,6 +10,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.widget.FrameLayout
 import androidx.core.view.GestureDetectorCompat
+import androidx.core.view.isVisible
 import com.quanbd.qbsticker.gesture.MoveGestureDetector
 import com.quanbd.qbsticker.gesture.RotateGestureDetector
 import com.quanbd.qbsticker.util.BitmapUtils
@@ -116,7 +117,6 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
     fun duplicateText(newId: String ?= null, newStartTime: Long? = null, newEndTime: Long? = null) {
         textSelected?.let {
             val newText = QBTextView(context, null).apply {
-                textSize = it.textSize / resources.displayMetrics.scaledDensity
                 val newModel = it.model.copy()
                 if (newId != null)
                     newModel.id = newId
@@ -149,9 +149,10 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
     fun addText() {
         val qbTextView = QBTextView(context, null)
         qbTextView.setOptions(icTransform, icDelete)
+        listText.add(qbTextView)
+        this.addView(qbTextView)
+        qbTextView.requestLayout()
         setDefaultTranslation(qbTextView)
-        listText.add(0, qbTextView)
-        this.addView(listText[0])
     }
 
     fun deleteTextById(textID: String) {
@@ -232,7 +233,7 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
         super.onDraw(canvas)
         canvas.save()
         textSelected?.let {
-            if (isEnableFrameSelected)
+            if (it.model.isVisible)
                 drawTextComponent(canvas, it)
         }
         canvas.restore()
@@ -244,7 +245,7 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
         qbTextView.drawFrameText(canvas, transformIcon, deleteIcon, lineSelectedColor)
     }
 
-    fun setVisibilityEntity(qbTextView: QBTextView, isVisible: Boolean) {
+    /*fun setVisibilityEntity(qbTextView: QBTextView, isVisible: Boolean) {
         if (isVisible) {
             qbTextView.model.isVisible = true
             qbTextView.invalidateModel()
@@ -254,6 +255,12 @@ class QBStickerView(context: Context, private val attrs: AttributeSet) :
             qbTextView.invalidateModel()
             enableFrameSelected(false)
         }
+    }*/
+
+    fun setVisibilityEntity(qbTextView: QBTextView, isVisible: Boolean) {
+        qbTextView.visibleText(isVisible)
+        enableFrameSelected(isVisible)
+        invalidate()
     }
 
     fun selectEntityById(id: String) {

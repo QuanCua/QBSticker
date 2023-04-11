@@ -1,41 +1,43 @@
 package com.quanbd.qbsticker
 
 import android.content.Context
+import android.content.res.Resources
 import android.graphics.*
-import android.text.InputFilter
+import android.os.Build
+import android.text.StaticLayout
+import android.text.TextPaint
 import android.util.AttributeSet
-import android.util.Log
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
-import androidx.core.view.isVisible
 import com.quanbd.qbsticker.util.FontUtils
 import com.quanbd.qbsticker.util.MathUtils
 import kotlin.math.acos
 import kotlin.math.sqrt
 
-class QBTextView(context: Context, attrs: AttributeSet?) :
-    androidx.appcompat.widget.AppCompatTextView(context, attrs) {
+class QBTextView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     companion object {
         const val DEFAULT_CONTENT = "Enter your text"
-        const val PADDING_HORIZONTAL = 20f
+        const val DEFAULT_SIZE = 20f
+        const val PADDING_HORIZONTAL = 40f
         const val PADDING_VERTICAL = 20f
     }
 
-    private var isInit = false
     private val paintFrame = Paint()
+    private val paintText = TextPaint()
     private val srcPoints = FloatArray(10)
     private val destPoints = FloatArray(10)
     val centerPoint = PointF()
-    var srcTransformRect = Rect()
+    private var srcTransformRect = Rect()
+    private var srcDeleteRect = Rect()
     var dstTransformRect = Rect()
-    var srcDeleteRect = Rect()
     var dstDeleteRect = Rect()
     var hitRect = Rect()
+    var textBoundRect = Rect()
     var model = QBStickerModel.Builder().build()
-
+    private var staticLayout: StaticLayout? = null
     var widthView = 0f
     var heightView = 0f
+    private var isTextChanged = false
 
     init {
         val params = ViewGroup.LayoutParams(
@@ -43,48 +45,68 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         this.layoutParams = params
-//        this.isSingleLine = true
-        this.text = DEFAULT_CONTENT
-        this.textSize = 30f
-        this.textAlignment = TEXT_ALIGNMENT_CENTER
-        this.setTextColor(Color.WHITE)
-        val filters = arrayOfNulls<InputFilter>(1)
-        filters[0] = InputFilter.LengthFilter(241996)
-        this.filters = filters
-        initViewSize()
 
-        paintFrame.isAntiAlias = true
-        paintFrame.style = Paint.Style.STROKE
-        paintFrame.strokeWidth = 4f
-        paintFrame.color = Color.WHITE
+        paintText.apply {
+            isAntiAlias = true
+            textSize = model.textSize * Resources.getSystem().displayMetrics.density
+            color = model.color
+            typeface = model.getFontDefault(context).first
+        }
 
-        isInit = true
+        paintFrame.apply {
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+            color = Color.WHITE
+        }
+
+        createStaticLayout()
     }
 
-    private fun initViewSize() {
-        measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-        this.widthView = paint.measureText(text.toString())
-        this.heightView = measuredHeight.toFloat()
-    }
-
-    private fun updateViewSizeByTextChanged() {
-        this.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                val width = this@QBTextView.width
-                val height = this@QBTextView.height
-
-                widthView = width.toFloat()
-                heightView = height.toFloat()
-
-                val oldCenter = absoluteCenter(srcPoints[2], srcPoints[5])
-                setSrcPoint(widthView, heightView)
-                val newCenter = absoluteCenter(srcPoints[2], srcPoints[5])
-                calculationCenter(oldCenter, newCenter)
-
-                this@QBTextView.viewTreeObserver.removeOnPreDrawListener(this)
-                return false
+    private fun createStaticLayout() {
+        val width: Int
+        if (model.text.contains("\n")) {
+            val textSubs = model.text.split("\n").toTypedArray()
+            var indexOfMax = 0
+            for (i in textSubs.indices) {
+                if (textSubs[indexOfMax].length < textSubs[i].length)
+                    indexOfMax = i
             }
-        })
+            paintText.getTextBounds(model.text, 0, textSubs[indexOfMax].length, textBoundRect)
+            width = textBoundRect.width() + PADDING_HORIZONTAL.toInt()
+        } else {
+            if (model.text.isNotEmpty())
+                paintText.getTextBounds(model.text, 0, model.text.length, textBoundRect)
+
+            width = textBoundRect.width() + PADDING_HORIZONTAL.toInt()
+        }
+
+        val newStaticLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            StaticLayout.Builder.obtain(model.text, 0, model.text.length, paintText, width)
+                .setAlignment(model.textAlignment)
+                .setLineSpacing(0f, 1f)
+                .setIncludePad(false).build()
+        } else {
+            StaticLayout(
+                model.text,
+                paintText,
+                width,
+                model.textAlignment,
+                1.0f,
+                0f,
+                false
+            )
+        }
+        staticLayout = newStaticLayout
+        widthView = staticLayout?.width?.toFloat() ?: 0f
+        heightView = staticLayout?.height?.toFloat() ?: 0f
+    }
+
+    fun setText(newText: String) {
+        isTextChanged = true
+        model.text = newText
+        createStaticLayout()
+        requestLayout()
     }
 
     fun setOptions(icTransform: Bitmap?, icDelete: Bitmap?) {
@@ -96,31 +118,24 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
     }
 
     fun invalidateModel() {
-        setSrcPoint(widthView, heightView)
-        model.apply {
-            this@QBTextView.text = this.text
-            this@QBTextView.setTextColor(this.color)
-            this@QBTextView.typeface = FontUtils.getFontByKey(this.fontKey)
-            this@QBTextView.visibility = if (this.isVisible) View.VISIBLE else View.GONE
-            when (this.align) {
-                QBStickerModel.ALIGN_LEFT, QBStickerModel.ALIGN_JUSTIFIED ->
-                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_START
-                QBStickerModel.ALIGN_RIGHT ->
-                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_TEXT_END
-                else ->
-                    this@QBTextView.textAlignment = TEXT_ALIGNMENT_CENTER
-            }
-            this@QBTextView.translationX = this.translation.x
-            this@QBTextView.translationY = this.translation.y
-            this@QBTextView.scaleX = this.scale
-            this@QBTextView.scaleY = this.scale
-            this@QBTextView.rotation = this.rotate
+        paintText.apply {
+            isAntiAlias = true
+            textSize = model.textSize * Resources.getSystem().displayMetrics.density
+            color = model.color
+            typeface = FontUtils.getFontByKey(model.fontKey)
         }
+        this.translationX = model.translation.x
+        this.translationY = model.translation.y
+        this.scaleX = model.scale
+        this.scaleY = model.scale
+        this.rotation = model.rotate
+        createStaticLayout()
+        requestLayout()
     }
 
-    fun visibleText(isVisible : Boolean) {
+    fun visibleText(isVisible: Boolean) {
         model.isVisible = isVisible
-        this.visibility = if (isVisible) View.VISIBLE else View.GONE
+        invalidate()
     }
 
     fun updateTranslation(translationValue: PointF) {
@@ -147,16 +162,16 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         }
     }
 
-    fun getRectAroundText() : Rect {
+    fun getRectAroundText(): Rect {
         this.getHitRect(hitRect)
         return hitRect
     }
 
-    fun getWidthFrame() : Float {
+    fun getWidthFrame(): Float {
         return srcPoints[2]
     }
 
-    fun getHeightFrame() : Float {
+    fun getHeightFrame(): Float {
         return srcPoints[5]
     }
 
@@ -187,6 +202,11 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+
+        canvas.save()
+        if (model.isVisible)
+            staticLayout?.draw(canvas)
+        canvas.restore()
     }
 
     fun drawFrameText(
@@ -250,38 +270,16 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         )
     }
 
-    override fun onTextChanged(
-        text: CharSequence?,
-        start: Int,
-        lengthBefore: Int,
-        lengthAfter: Int
-    ) {
-        super.onTextChanged(text, start, lengthBefore, lengthAfter)
-
-        try {
-            if (!isInit) {
-                this.post {
-                    initViewSize()
-                    setSrcPoint(this.widthView, this.heightView)
-                }
-            } else {
-                updateViewSizeByTextChanged()
-            }
-        } catch (e: java.lang.Exception) {
-            e.printStackTrace()
-        }
-    }
-
     private fun setSrcPoint(width: Float, height: Float) {
-        srcPoints[0] = -PADDING_HORIZONTAL
+        srcPoints[0] = 0f
         srcPoints[1] = 0f
-        srcPoints[2] = width + PADDING_HORIZONTAL
+        srcPoints[2] = width
         srcPoints[3] = 0f
-        srcPoints[4] = width + PADDING_HORIZONTAL
+        srcPoints[4] = width
         srcPoints[5] = height
-        srcPoints[6] = -PADDING_HORIZONTAL
+        srcPoints[6] = 0f
         srcPoints[7] = height
-        srcPoints[8] = -PADDING_HORIZONTAL
+        srcPoints[8] = 0f
         srcPoints[9] = 0f
     }
 
@@ -297,8 +295,22 @@ class QBTextView(context: Context, attrs: AttributeSet?) :
         return PointF(centerX, centerY)
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (isTextChanged) {
+            isTextChanged = false
+            val oldCenter = absoluteCenter(srcPoints[2], srcPoints[5])
+            setSrcPoint(w.toFloat(), h.toFloat())
+            val newCenter = absoluteCenter(srcPoints[2], srcPoints[5])
+            calculationCenter(oldCenter, newCenter)
+        } else
+            setSrcPoint(w.toFloat(), h.toFloat())
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        setMeasuredDimension(measuredWidth , measuredHeight)
+        widthView = staticLayout?.width?.toFloat() ?: 0f
+        heightView = staticLayout?.height?.toFloat() ?: 0f
+        setMeasuredDimension(widthView.toInt(), heightView.toInt())
     }
 }
