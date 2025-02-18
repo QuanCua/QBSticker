@@ -4,7 +4,8 @@ QBSticker
 A view which can add Text and zoom,drag,rotate,delete it
 
 ## Screenshots
-![](https://github.com/QuanCua/QBSticker/blob/main/screenshots/example1.jpg)
+![]![demo_sticker](https://github.com/user-attachments/assets/425a2fc3-5979-4c7d-aad8-a5db603ea2d7)
+
 
 ## Setting Gradle
 1. Add the JitPack repository to your build file
